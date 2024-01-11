@@ -9,6 +9,7 @@ Adafruit_MPU6050 mpu;
 SF fusion;
 DFRobot_QMC5883 compass(&Wire, QMC5883_ADDRESS);
 
+//PID control
 float K_P = 0.6;
 float K_I = 0.5;
 float K_D = 0.14;
@@ -18,14 +19,7 @@ int counter = 1;
 
 int rotary_encoder = PB14;
 
-// float b [3] = {-120.879064, -463.408088, 182.723022};
-// float A [3][3] = {{0.024359, -0.000520, -0.000265}, 
-//                   {-0.000520, 0.022273, 0.000854}, 
-//                   {-0.000265, 0.000854, 0.021477}};
-// float b [3] = {-134.821620, -467.851748, 245.657692}; //{-134.821620, -187.851748, 245.657692};
-// float A [3][3] = {{0.037082, -0.000477, 0.000073},
-//                   {-0.000477, 0.036257, 0.000443},
-//                   {0.000073, 0.000443, 0.036956}};
+//magnetometer calibration
 float b [3] = {-70.322132, -234.665158, 271.251127};
 float A [3][3] = {{0.032394, -0.000213, 0.000050},
                   {-0.000213, 0.031874, 0.000346},
@@ -52,33 +46,13 @@ bool onBridge = false;
 bool passedBridge = false;
 bool passedTurn = false;
 float distance_threshold = 80;
-//float pastZAngle [75];
-//float variance_sum_x2 = 0;
-//float variance_sum_x = 0;
-//int currentZIndex = 0;
 float yaw_offset = 0;
 
-// float magSumX;
-// float magSumY;
-// float magSumZ;
-// int magIndex = 0;
-// float magX [300];
-// float magY [300];
-// float magZ [300];
-
+//defining speed and differential stearing for each section of the map
 float velocity_order [8] = {0.2, 0.3, 0.3, 0.3, 0.9, 0.8, 1, 0.9};
 float offset_order [8] = {0.15, 0.2, 0.2, 0.2, -0.7, 0.2, 0, -0.6};
 
-//HardwareSerial Serial3(USART3);
-
-//float mag_past [3] = {0,0,0};
-
-//centre, radius, ca_1_unit, ca_2_unit, theta
-
-//ca_1_unit is the most clockwise point on the semicircle represented as a unit vector from the centre of the circle
-//ca_2_unit is the same as ca_1_unit but the most counterclockwise point
-
-
+//defining the map
 float lines[5][4] = {{156, 54, 110, 250},
                      {110, 250, 100, 300},
                      {85, 265, 85, 415}, //{78, 300, 78, 600},//410},
@@ -138,29 +112,8 @@ void getOrientation()
     }
   }
 
-  // magSumX -= magX[magIndex];
-  // magSumY -= magY[magIndex];
-  // magSumZ -= magZ[magIndex];
-  // magSumX += mag_cal[0];
-  // magSumY += mag_cal[1];
-  // magSumZ += mag_cal[2];
-
-  // magX[magIndex] = mag_cal[0];
-  // magY[magIndex] = mag_cal[1];
-  // magZ[magIndex] = mag_cal[2];
-
-  // magIndex += 1;
-  // if (magIndex == 300)
-  // {
-  //   magIndex = 0;
-  // }
-
   deltat = fusion.deltatUpdate();
-  //fusion.MadgwickUpdate(GyroX, GyroY, GyroZ, AccX, AccY, AccZ, -magSumX / 300, magSumY / 300, -magSumZ / 300, deltat);
-  //fusion.MadgwickUpdate(GyroX, GyroY, GyroZ, AccX, AccY, AccZ, magSumX / 300, magSumY / 300, magSumZ / 300, deltat);
   fusion.MahonyUpdate(GyroX, GyroY, GyroZ, AccX, AccY, AccZ, mag_cal[0], mag_cal[1], mag_cal[2], deltat);
-  //fusion.MadgwickUpdate(GyroX, GyroY, GyroZ, AccX, AccY, AccZ, -mag_cal[0], mag_cal[1], mag_cal[2], deltat);
-
   yaw = fusion.getYaw() + yaw_offset;
   roll = fusion.getPitch();
   pitch = fusion.getRoll() + 180;
@@ -276,66 +229,6 @@ float magnitude(float array[], int length)
 void calibration_line(bool y, float m, float b, float horizontal, float vertical)
 {
   float rotary_fraction = rotary_encoder_distance *  fmin(fabs((millis() - errors_time[0]) / (errors_time[0] - errors_time[1])), 1);
-
-  // float position_real [2] = {position[0] + rotary_fraction * orientation[0], position[1] + rotary_fraction * orientation[1]};
-  // float sensor[2] = {position_real[0] + orientation[1] * horizontal + vertical * orientation[0],
-  //                    position_real[1] + orientation[1] * vertical - orientation[0] * horizontal};
-  // if (y)
-  // {
-  //   float difference = m*sensor[0] + b - sensor[1];
-  //   position_real[1] += difference;
-  //   position[1] = position_real[1] - rotary_fraction * orientation[1];
-  // }
-  // else
-  // {
-  //   float difference = (sensor[1] - b) / m - sensor[0];
-  //   position_real[0] += difference;
-  //   position[0] = position_real[0] - rotary_fraction * orientation[0];
-  // }
-
-  // position[1] = position[1] + rotary_fraction * orientation[1] + m*position_real[0] + m*orientation[1] * horizontal + m*vertical * orientation[0] 
-  //             + b - position_real[1] - orientation[1] * vertical + orientation[0] * horizontal
-  //               - rotary_fraction * orientation[1]
-
-  //             = position[1] + m*(position[0] + rotary_fraction * orientation[0]) + m*orientation[1] * horizontal + m*vertical * orientation[0] 
-  //             + b - (position[1] + rotary_fraction * orientation[1]) - orientation[1] * vertical + orientation[0] * horizontal
-
-  //             =position[1] + m*position[0] + m*rotary_fraction * orientation[0] + m*orientation[1] * horizontal + m*vertical * orientation[0] 
-  //             + b - position[1] - rotary_fraction * orientation[1] - orientation[1] * vertical + orientation[0] * horizontal
-
-  //             = m*position[0] + m*rotary_fraction * orientation[0] + m*orientation[1] * horizontal + m*vertical * orientation[0] 
-  //             + b - rotary_fraction * orientation[1] - orientation[1] * vertical + orientation[0] * horizontal
-
-  //             = m*position[0] + (orientation[0] * m-orientation[1])*rotary_fraction + (m*orientation[1] + orientation[0]) * horizontal + 
-  //             (m*orientation[0] - orientation[1]) * vertical + b
-
-  // position[0] = position_real[0] - rotary_fraction * orientation[0];
-                // = (position[0] + rotary_fraction * orientation[0] + (sensor[1] - b) / m - sensor[0]) - rotary_fraction * orientation[0]
-
-                // = position[0] + rotary_fraction * orientation[0] + 
-                // (position[1] + rotary_fraction * orientation[1] + orientation[1] * vertical - orientation[0] * horizontal - b) / m 
-                // - (position[0] + rotary_fraction * orientation[0] + orientation[1] * horizontal + vertical * orientation[0]) 
-                // - rotary_fraction * orientation[0]
-
-                // = (position[1] + rotary_fraction * orientation[1] + orientation[1] * vertical - orientation[0] * horizontal - b) / m 
-                //   - orientation[1] * horizontal - vertical * orientation[0] 
-                // - rotary_fraction * orientation[0]
-
-                // =(1/m)position[1] + (1/m)rotary_fraction * orientation[1] + (1/m)orientation[1] * vertical - (1/m)orientation[0] * horizontal - b/m
-                //   - orientation[1] * horizontal - vertical * orientation[0] 
-                // - rotary_fraction * orientation[0]
-
-                // =(1/m)position[1] + rotary_fraction * ((1/m) * orientation[1] - orientation[0]) 
-                // + ((1/m)orientation[1] - orientation[0]) * vertical + horizontal *(-(1/m)orientation[0] - orientation[1]) - b/m
-
-  // else {
-  //   float t = orientation[1] / m - orientation[0];
-  //   float f = -orientation[0] / m - orientation[1];
-  //   float p = 1/m;
-
-  //   position[0] = position[1] / m + rotary_fraction * t + vertical * t + horizontal * f - b/m;
-  // }
-
   float t = orientation[0] * m - orientation[1];
   float f = m*orientation[1] + orientation[0];
   float p = m;
@@ -346,27 +239,8 @@ void calibration_line(bool y, float m, float b, float horizontal, float vertical
     f = -orientation[0] / m - orientation[1];
     p = 1/m;
     k = -p;
-    //position[1] = m*position[0] + t * rotary_fraction + f * horizontal + t * vertical + b;
   }
-
-
   position[y] = p * position[!y] + t * rotary_fraction + t * vertical + f * horizontal + b * k;
-
-              
-
-  
-
-  
-  // if (y)
-  // {
-  //   float t = orientation[0] * m - orientation[1];
-  //   position[0] = position[0] * (m+1) - position[1] + rotary_fraction * t + horizontal * t + vertical * t + b;
-  // }
-  // else
-  // {
-
-  // }
-
   update_front_pos();
 }
 
@@ -472,39 +346,9 @@ void getNextPosition()
     update_PID();
   }
 
-  // if (order_index == 1 && position[1] < 52)
-  // {
-  //   velocity = velocity_order[0];
-  //   run_motors(offset_order[0]);
-  // }
-  // else if (order_index == 5 && position_front[1] < 350)
-  // {
-  //   velocity = 0.8;
-  //   run_motors(0.2);
-  // }
-  // else if (position[1] > 264.5 && order_index == 1)
-  // {
-  //   velocity = 0.15;
-  //   run_motors(0.2);
-  // }
-  // else
-  // {
-  // if (abs(errors[0]) > 7)
-  // {
-  //   velocity = 0.15;
-  //   run_motors(0.1);
-  // }
-  // else{
   velocity = velocity_order[order_index];
   run_motors(offset_order[order_index]);
-
-  // Serial3.println("---");
-  // Serial3.print("(");
-  // Serial3.print(position[0]);
-  // Serial3.print(",");
-  // Serial3.print(position[1]);
-  // Serial3.println("), ");
-
+  
   if ((order_index == 2 || order_index == 3) && passedBridge && position[1] > 264.5 && position[1] < 357)
   {
     float sensor_val = analogRead(PA4);
@@ -512,10 +356,6 @@ void getNextPosition()
     if (distance < 80)
       calibration_line(false, 1000.0, 250.0 - 1000.0 * (61 + distance * abs(orientation[1])), 1.7, 7.6);
   }
-  
-  // Serial3.println(orientation[0]);
-  // Serial3.println(orientation[1]);
-
 }
 
 void update_PID()
@@ -585,10 +425,6 @@ void update_error()
       i = 2;
     }
   }
-  // if (order_index != new_order_index)
-  // {
-  //   Serial3.println(order_index);
-  // }
   order_index = new_order_index;
 
   errors[1] = errors[0];
@@ -647,29 +483,7 @@ float getErrorToSemiCircle(float centre[], float radius, float ca_1_unit[], floa
 
     return abs(error) * sign;
   }
-
-  // float distances_pre [2] = {centre[0] - position_sensor[0], centre[1] - position_sensor[1]};
-  // float distances [2][2] = {{distances_pre[0] + ca_1_unit[0] * radius, distances_pre[1] + ca_1_unit[1] * radius},
-  //                         {distances_pre[0] + ca_2_unit[0] * radius, distances_pre[1] + ca_2_unit[1] * radius}};
-
-  // float norms [2];
-  // for (int i = 0; i < 2; i++)
-  // {
-  //   norms[i] = dot_prod(distances[i], distances[i], 2);
-  // }
-  // // float norm_d1 = dot_prod(distance1, distance1, 2);
-  // // float norm_d2 = dot_prod(distance2, distance2, 2);
-
-  // float error = sqrt(fmin(norms[0], norms[1]));
-  // bool f = (norms[0] >= norms[1]);
-  // // if (norms[0] < norms[1])
-  // sign = -orientation[0] * distances[f][1]  + orientation[1] * distances[f][0];
-  // // else
-  // //     sign = -orientation[0] * distances[1][1] + orientation[1] * distances[1][0];
-  // if (sign != 0)
-  //   return abs(error) * sign / abs(sign);
-  // return abs(error) * -1;
-
+  
   float distance1 [2] = {centre[0] + ca_1_unit[0] * radius - position_sensor[0], centre[1] + ca_1_unit[1] * radius - position_sensor[1]};
   float distance2 [2] = {centre[0] + ca_2_unit[0] * radius - position_sensor[0], centre[1] + ca_2_unit[1] * radius - position_sensor[1]};
 
@@ -685,92 +499,6 @@ float getErrorToSemiCircle(float centre[], float radius, float ca_1_unit[], floa
     return abs(error) * sign / abs(sign);
   return abs(error) * -1;
 }
-
-// bool on_ramp()
-// {
-//   // orientation[0] = cos(yaw * PI / 180.0);
-//   // orientation[1] = sin(yaw * PI / 180.0);
-//   // //(orientation[0], orientation[1], tan_pitch)
-//   // float tan_roll = tan(PI * roll / 180.0);
-//   // float tan_pitch = -tan(PI * pitch / 180.0);
-
-//   // if (tan_roll == NAN || tan_pitch == NAN)
-//   // {
-//   //   return false;
-//   // }
-
-//   // float vehical_norm [3] = {-orientation[1] * tan_roll - tan_pitch * orientation[0], -tan_pitch * orientation[1] + tan_roll * orientation[0], 1};
-//   // float sin_diff [3] = {vehical_norm[1] * ramp_normal[2] - ramp_normal[1],
-//   //                        - vehical_norm[0] * ramp_normal[2],
-//   //                        vehical_norm[0] * ramp_normal[1]}; // |sin_diff| = |v_n||r_n|sin(theta)
-
-//   // float difference = sqrt(dot_prod(sin_diff, sin_diff, 3) / dot_prod(vehical_norm, vehical_norm, 3));
-
-//   // if (!onRamp)
-//   // {
-//   //   if (abs(difference) < 0.1)
-//   //   {
-//   //     return true;
-//   //   }
-//   //   return false;
-//   // }
-//   // else 
-//   // {
-//   //   if (abs(difference) < 0.15)
-//   //   {
-//   //     return true;
-//   //   }
-//   //   return false;
-//   // }
-
-//   float pitch_ref = min(pitch, abs(360-pitch));
-//   float roll_ref = min(roll, abs(360-roll));
-//   float val = pitch*pitch + roll*roll;
-//   if (!onRamp)
-//   {
-//     if (val > 16)
-//       return true;
-//     return false;
-//   }
-
-//   if (val < 10)
-//     return false;
-//   return true;
-// }
-
-// bool on_rocks()
-// {
-//   variance_sum_x -= pastZAngle[currentZIndex];
-//   variance_sum_x2 -= pow(pastZAngle[currentZIndex], 2);
-//   float roll_ref = min(roll, 360 - roll);
-//   float pitch_ref = min(pitch, 360 - pitch);
-//   pastZAngle[currentZIndex] = pitch_ref + roll_ref;
-//   //pastZTimes[currentZIndex] = micros();
-//   variance_sum_x += pastZAngle[currentZIndex];
-//   variance_sum_x2 += pow(pastZAngle[currentZIndex], 2);
-//   currentZIndex += 1;
-//   if (currentZIndex == sizeof(pastZAngle)/sizeof(pastZAngle[0]))
-//   {
-//     currentZIndex = 0;
-//   }
-//   //float angle = pow(roll_ref, 2) + pow(pitch_ref, 2);
-//   // if (angle > 400)
-//   //   return true;
-//   // return false;
-//   float variance = variance_sum_x2 - pow(variance_sum_x, 2) * sizeof(pastZAngle[0]) / sizeof(pastZAngle);
-
-//   if (onRocks)
-//   {
-//     if (variance > 2)
-//       return true;
-//     return false;
-//   }
-//   else{
-//     if (variance > 500)
-//       return true;
-//     return false;
-//   }
-// }
 
 void update_front_pos()
 {
@@ -790,33 +518,6 @@ void run_motors(float offset)
 
 void loop() {
   getOrientation();
-
-  // counter += 1;
-  // if (counter > 230)
-  // {
-  //   counter = 0;
-    // sVector_t mag = compass.readRaw();
-    // if (abs(mag.XAxis - mag_past[0]) > 5 || abs(mag.YAxis - mag_past[1]) > 5 || abs(mag.ZAxis - mag_past[2]) > 5)
-    // {
-    //   counter = 0;
-    //   mag_past[0] = mag.XAxis;
-    //   mag_past[1] = mag.YAxis;
-    //   mag_past[2] = mag.ZAxis;
-
-    //   Serial3.print(mag.XAxis);
-    //   Serial3.print("\t");
-    //   Serial3.print(mag.YAxis);
-    //   Serial3.print("\t");
-    //   Serial3.println(mag.ZAxis);
-    // }
-  //   orientation[0] = cos(yaw * PI / 180.0);
-  //   orientation[1] = sin(yaw * PI / 180.0);
-
-  //   Serial3.println("----");
-  //   Serial3.println(orientation[0]);
-  //   Serial3.println(orientation[1]);
-  // }
-    
   
   bool rotary_val = digitalRead(rotary_encoder);
   if ((rotary_val != rotary_val_past) && rotary_val == 0 && millis() - past_time > 20)
@@ -868,50 +569,4 @@ void loop() {
       getNextPosition();
     }
   }
-
-
-
-// if (!onRamp && on_ramp())
-    //   onRamp = true;
-    // else if (onRamp && !on_ramp())
-    // {
-    //   if (orientation[0] > 0)
-    //     calibration_line(true, 0, 263, 0, 0);
-    //   else
-    //     calibration_line(true, 0, 263, 21.6, 0);
-    //   onRamp = false;
-    // }
-
-
-  //   if (order_index == 2 && !onRocks && !passedRocks && on_rocks())
-  // {
-  //   onRocks = true;
-  //   calibration_line(false, 0.485, 267, 0, 17.4);
-  // }
-  // else if (order_index == 2 && onRocks && !passedRocks && !on_rocks)
-  // {
-  //   onRocks = false;
-  //   calibration_line(true, 0.485, 315, -0.485, 1, false);
-  // }
-
-  // if (onBridge && !passedBridge && position[1] > 224)
-  // {
-    
-  // }
-  // else if ((order_index == 1 || order_index == 2) && onBridge && !passedBridge)
-  // {
-  //   digitalWrite(PA9, HIGH);
-  //   delayMicroseconds(4);
-
-  //   digitalWrite(PA9, LOW);
-  //   delayMicroseconds(4);
-
-  //   if (pulseIn(PA10, HIGH) > 2000)
-  //   {
-  //     onBridge = false;
-  //     passedBridge = true;
-  //     calibration_line(true, 0, 264.5, 16.1, 11.4);
-  //   }
-  // }
-  
 }
